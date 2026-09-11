@@ -1,6 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routers import reports, telemetry, zones
 
@@ -33,3 +34,7 @@ def root_health_check():
         "event": "LexHack 2026",
         "docs_url": "/docs",
     }
+
+
+# Mount static files for the frontend
+app.mount("/static", StaticFiles(directory="static"), name="static")
