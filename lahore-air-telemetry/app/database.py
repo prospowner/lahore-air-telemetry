@@ -19,6 +19,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 # Explicitly import models here so Base registers them immediately
 from app.models.report import Report
 from app.models.telemetry import TelemetryLog
