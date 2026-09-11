@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LahorePulse | Air Quality & Hazard Telemetry</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <!-- Header Section -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-emerald-400">LahorePulse 🌆</h1>
+                <p class="text-xs text-slate-400">Air Quality & Hazard Telemetry Engine (LexHack 2026)</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-xs text-slate-300 font-medium">Live Feed Active</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- Left 2 Columns: Zones & Telemetry Cards -->
+        <section class="lg:col-span-2 space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-slate-200">Monitored Zones</h2>
+                <button onclick="loadDashboardData()"
+                    class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-md transition font-medium">Refresh
+                    Data</button>
+            </div>
+
+            <!-- Zones Grid Container -->
+            <div id="zones-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Dynamic cards injected via JS -->
+                <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/40 animate-pulse">
+                    <div class="h-4 bg-slate-800 rounded w-1/2 mb-3"></div>
+                    <div class="h-8 bg-slate-800 rounded w-1/4 mb-4"></div>
+                    <div class="h-3 bg-slate-800 rounded w-3/4"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Hazard Report Submission Form -->
+        <section class="space-y-6">
+            <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
+                <h2 class="text-lg font-semibold text-slate-200 mb-2">Report Community Hazard</h2>
+                <p class="text-xs text-slate-400 mb-4">Submit local logs like waste burning or heavy smog accumulation.
+                </p>
+
+                <form id="report-form" onsubmit="submitHazardReport(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Select Zone</label>
+                        <select id="report-zone-select" required
+                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Hazard Category</label>
+                        <select id="report-category"
+                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <option value="Garbage Burning">Garbage Burning</option>
+                            <option value="Heavy Smoke">Industrial Smoke / Brick Kilns</option>
+                            <option value="Dust / Construction">Dust & Construction</option>
+                            <option value="Other Hazard">Other Hazard</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Description (Optional)</label>
+                        <textarea id="report-description" rows="3" placeholder="Provide brief details..."
+                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"></textarea>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-950/50">
+                        Submit Report
+                    </button>
+                </form>
+            </div>
+
+            <!-- Recent Reports Feed -->
+            <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40">
+                <h3 class="text-sm font-semibold text-slate-200 mb-3">Recent Hazard Logs</h3>
+                <div id="reports-feed" class="space-y-3 text-xs">
+                    <p class="text-slate-500">Loading reports...</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Frontend Script Logic -->
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+
+        async function loadDashboardData() {
+            try {
+                // Fetch Zones
+                const zonesRes = await fetch(`${API_BASE}/api/zones`);
+                const zones = await zonesRes.json();
+
+                const zonesContainer = document.getElementById("zones-container");
+                const zoneSelect = document.getElementById("report-zone-select");
+
+                zonesContainer.innerHTML = "";
+                zoneSelect.innerHTML = "";
+
+                for (const zone of zones) {
+                    // Populate Dropdown
+                    const option = document.createElement("option");
+                    option.value = zone.id;
+                    option.textContent = zone.name;
+                    zoneSelect.appendChild(option);
+
+                    // Fetch Latest Telemetry for each zone
+                    const telRes = await fetch(`${API_BASE}/api/telemetry/zone/${zone.id}`);
+                    const telLogs = await telRes.json();
+                    const latest = telLogs.length > 0 ? telLogs[0] : { aqi: "N/A", pm2_5: "N/A", pm10: "N/A", source: "None" };
+
+                    // Determine color badge based on AQI
+                    let badgeColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                    let aqiText = latest.aqi;
+                    if (latest.aqi > 150) badgeColor = "bg-rose-500/10 text-rose-400 border-rose-500/20";
+                    else if (latest.aqi > 100) badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                    else if (latest.aqi > 50) badgeColor = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+
+                    // Render Zone Card
+                    const card = document.createElement("div");
+                    card.className = "p-5 rounded-xl border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition flex flex-col justify-between";
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-semibold text-slate-100">${zone.name}</h3>
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeColor}">AQI: ${aqiText}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-4">Lat: ${zone.latitude.toFixed(2)}, Lon: ${zone.longitude.toFixed(2)}</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800/60 text-xs">
+                            <div>
+                                <span class="text-slate-500 block">PM 2.5</span>
+                                <span class="font-medium text-slate-200">${latest.pm2_5} µg/m³</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block">PM 10</span>
+                                <span class="font-medium text-slate-200">${latest.pm10} µg/m³</span>
+                            </div>
+                        </div>
+                    `;
+                    zonesContainer.appendChild(card);
+                }
+
+                // Fetch Reports
+                const repRes = await fetch(`${API_BASE}/api/reports`);
+                const reports = await repRes.json();
+                const reportsFeed = document.getElementById("reports-feed");
+
+                reportsFeed.innerHTML = "";
+                if (reports.length === 0) {
+                    reportsFeed.innerHTML = `<p class="text-slate-500">No hazard reports logged yet.</p>`;
+                } else {
+                    reports.slice(0, 5).forEach(rep => {
+                        const item = document.createElement("div");
+                        item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800/80";
+                        item.innerHTML = `
+                            <div class="flex justify-between font-medium text-slate-300 mb-1">
+                                <span>${rep.category}</span>
+                                <span class="text-emerald-400 capitalize">${rep.verification_status}</span>
+                            </div>
+                            <p class="text-slate-400">${rep.description || 'No additional description provided.'}</p>
+                        `;
+                        reportsFeed.appendChild(item);
+                    });
+                }
+
+            } catch (err) {
+                console.error("Failed to load dashboard data:", err);
+            }
+        }
+
+        async function submitHazardReport(event) {
+            event.preventDefault();
+            const zone_id = parseInt(document.getElementById("report-zone-select").value);
+            const category = document.getElementById("report-category").value;
+            const description = document.getElementById("report-description").value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/reports`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ zone_id, category, description })
+                });
+
+                if (response.ok) {
+                    document.getElementById("report-description").value = "";
+                    loadDashboardData();
+                    alert("Hazard report submitted successfully!");
+                } else {
+                    alert("Failed to submit report.");
+                }
+            } catch (err) {
+                console.error("Error submitting report:", err);
+            }
+        }
+
+        // Initial Load on page open
+        loadDashboardData();
+    </script>
+</body>
+
+</html>
