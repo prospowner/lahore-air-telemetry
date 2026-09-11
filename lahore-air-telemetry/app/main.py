@@ -1,6 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.routers import reports, telemetry, zones
@@ -38,3 +39,10 @@ def root_health_check():
 
 # Mount static files for the frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Add a redirect to the root url so it automatically goes to the dashboard
+
+
+@app.get("/", tags=["Root"])
+def root_redirect():
+    return RedirectResponse(url="/static/index.html")
