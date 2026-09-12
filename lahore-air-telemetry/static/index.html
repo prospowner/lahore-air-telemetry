@@ -4,23 +4,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LahorePulse | Air Quality & Hazard Telemetry</title>
+    <title>LahorePulse | GIS Air Quality & Hazard Telemetry</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        /* Custom Dark Theme adjustments for Leaflet Popups & Controls */
+        .leaflet-popup-content-wrapper,
+        .leaflet-popup-tip {
+            background-color: #020617 !important;
+            color: #f8fafc !important;
+            border: 1px solid #1e293b;
+        }
+
+        .leaflet-container {
+            font-family: inherit;
+        }
+
+        /* Toast Notification Keyframes */
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .toast-exit {
+            animation: fadeOut 0.3s ease-in forwards;
+        }
+    </style>
 </head>
 
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <!-- Toast Container for Modern Notifications -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none"></div>
 
     <!-- Header Section -->
     <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div>
                 <h1 class="text-xl font-bold tracking-tight text-emerald-400">LahorePulse 🌆</h1>
-                <p class="text-xs text-slate-400">Air Quality & Hazard Telemetry Engine (LexHack 2026)</p>
+                <p class="text-xs text-slate-400">GIS Air Quality & Hazard Telemetry Engine (LexHack 2026)</p>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-xs text-slate-300 font-medium">Live Feed Active</span>
+            <div class="flex items-center gap-3">
+                <!-- Real-time Status Badge System -->
+                <div id="connection-badge"
+                    class="flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium shadow-sm transition-all duration-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="badge-text">Connected</span>
+                </div>
             </div>
         </div>
     </header>
@@ -28,22 +85,26 @@
     <!-- Main Content Grid -->
     <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        <!-- Left 2 Columns: Zones & Telemetry Cards -->
+        <!-- Left 2 Columns: GIS Map & Zone Summary -->
         <section class="lg:col-span-2 space-y-6">
             <div class="flex justify-between items-center">
-                <h2 class="text-lg font-semibold text-slate-200">Monitored Zones</h2>
+                <h2 class="text-lg font-semibold text-slate-200">Interactive Regional Telemetry Map</h2>
                 <button onclick="loadDashboardData()"
                     class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-md transition font-medium">Refresh
-                    Data</button>
+                    Telemetry</button>
             </div>
 
-            <!-- Zones Grid Container -->
-            <div id="zones-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Dynamic cards injected via JS -->
-                <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/40 animate-pulse">
-                    <div class="h-4 bg-slate-800 rounded w-1/2 mb-3"></div>
-                    <div class="h-8 bg-slate-800 rounded w-1/4 mb-4"></div>
-                    <div class="h-3 bg-slate-800 rounded w-3/4"></div>
+            <!-- Leaflet Map Container -->
+            <div
+                class="relative w-full h-[450px] rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden shadow-xl">
+                <div id="map" class="w-full h-full z-10"></div>
+            </div>
+
+            <!-- Quick Zone Status List Cards -->
+            <div>
+                <h3 class="text-sm font-semibold text-slate-300 mb-3">Zone Breakdown</h3>
+                <div id="zones-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Injected via JS -->
                 </div>
             </div>
         </section>
@@ -103,84 +164,143 @@
     <script>
         const API_BASE = "http://127.0.0.1:8000";
 
-        // Helper to compute AQI status label and color styling client-side
+        // Initialize Leaflet Map centered over Lahore
+        let map = L.map('map', { zoomControl: false }).setView([31.5204, 74.3587], 11);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        // Natively dark Esri World Dark Gray Canvas (100% free, no API key or watermarks required)
+        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+            maxZoom: 16
+        }).addTo(map);
+
+        let mapLayerGroup = L.layerGroup().addTo(map);
+
+        // Modern Toast Notification Engine replacing standard browser alert()
+        function showToast(message, type = 'success') {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+
+            const isSuccess = type === 'success';
+            const bgColor = isSuccess ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-300' : 'bg-rose-950/90 border-rose-500/40 text-rose-300';
+            const icon = isSuccess ? '✓' : '⚠️';
+
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-md text-xs font-medium toast-enter ${bgColor}`;
+            toast.innerHTML = `
+                <span class="text-base">${icon}</span>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // Real-time Status Badge Updater
+        function updateStatusBadge(status, text) {
+            const badge = document.getElementById("connection-badge");
+            const badgeText = document.getElementById("badge-text");
+
+            if (status === 'connected') {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium shadow-sm transition-all duration-300";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span id="badge-text">${text}</span>`;
+            } else if (status === 'syncing') {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-medium shadow-sm transition-all duration-300";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span><span id="badge-text">${text}</span>`;
+            } else {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-400 text-xs font-medium shadow-sm transition-all duration-300";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span id="badge-text">${text}</span>`;
+            }
+        }
+
         function getAqiDetails(aqi, source) {
             if (source === "openweathermap") {
-                const map = {
-                    1: { label: "Good", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-                    2: { label: "Fair", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-                    3: { label: "Moderate", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-                    4: { label: "Poor", color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
-                    5: { label: "Very Poor", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" }
+                const mapScale = {
+                    1: { label: "Good", color: "#10b981", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+                    2: { label: "Fair", color: "#eab308", badge: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
+                    3: { label: "Moderate", color: "#f59e0b", badge: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+                    4: { label: "Poor", color: "#f43f5e", badge: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+                    5: { label: "Very Poor", color: "#a855f7", badge: "bg-purple-500/10 text-purple-400 border-purple-500/20" }
                 };
-                return map[aqi] || { label: "Unknown", color: "bg-slate-800 text-slate-400 border-slate-700" };
+                return mapScale[aqi] || { label: "Unknown", color: "#64748b", badge: "bg-slate-800 text-slate-400 border-slate-700" };
             }
 
-            // Standard EPA index for WAQI
-            if (aqi <= 50) return { label: "Good", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
-            if (aqi <= 100) return { label: "Moderate", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" };
-            if (aqi <= 150) return { label: "Sensitive Groups", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
-            if (aqi <= 200) return { label: "Unhealthy", color: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
-            if (aqi <= 300) return { label: "Very Unhealthy", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
-            return { label: "Hazardous", color: "bg-red-950/40 text-red-400 border-red-500/30" };
+            if (aqi <= 50) return { label: "Good", color: "#10b981", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+            if (aqi <= 100) return { label: "Moderate", color: "#eab308", badge: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" };
+            if (aqi <= 150) return { label: "Sensitive Groups", color: "#f59e0b", badge: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+            if (aqi <= 200) return { label: "Unhealthy", color: "#f43f5e", badge: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+            if (aqi <= 300) return { label: "Very Unhealthy", color: "#a855f7", badge: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+            return { label: "Hazardous", color: "#7f1d1d", badge: "bg-red-950/40 text-red-400 border-red-500/30" };
         }
 
         async function loadDashboardData() {
             try {
+                updateStatusBadge('syncing', 'Syncing Telemetry...');
+                mapLayerGroup.clearLayers();
+
                 // Fetch Zones
                 const zonesRes = await fetch(`${API_BASE}/api/zones`);
                 const zones = await zonesRes.json();
 
-                const zonesContainer = document.getElementById("zones-container");
+                const zonesListContainer = document.getElementById("zones-list-container");
                 const zoneSelect = document.getElementById("report-zone-select");
 
-                zonesContainer.innerHTML = "";
+                zonesListContainer.innerHTML = "";
                 zoneSelect.innerHTML = "";
 
                 for (const zone of zones) {
-                    // Populate Dropdown
                     const option = document.createElement("option");
                     option.value = zone.id;
                     option.textContent = zone.name;
                     zoneSelect.appendChild(option);
 
-                    // Fetch Latest Telemetry for each zone
                     const telRes = await fetch(`${API_BASE}/api/telemetry/zone/${zone.id}`);
                     const telLogs = await telRes.json();
                     const latest = telLogs.length > 0 ? telLogs[0] : { aqi: "N/A", pm2_5: "N/A", pm10: "N/A", source: "None" };
 
-                    // Get qualitative details
-                    const details = latest.aqi !== "N/A" ? getAqiDetails(latest.aqi, latest.source) : { label: "No Data", color: "bg-slate-800 text-slate-400 border-slate-700" };
+                    const details = latest.aqi !== "N/A" ? getAqiDetails(latest.aqi, latest.source) : { label: "No Data", color: "#64748b", badge: "bg-slate-800 text-slate-400 border-slate-700" };
 
-                    // Render Zone Card
+                    const circleMarker = L.circleMarker([zone.latitude, zone.longitude], {
+                        radius: 12,
+                        fillColor: details.color,
+                        color: '#ffffff',
+                        weight: 2,
+                        opacity: 0.9,
+                        fillOpacity: 0.8
+                    });
+
+                    circleMarker.bindPopup(`
+                        <div class="p-2 space-y-1">
+                            <h4 class="font-bold text-sm text-emerald-400">${zone.name}</h4>
+                            <p class="text-xs text-slate-300">AQI: <span class="font-bold">${latest.aqi}</span> (${details.label})</p>
+                            <p class="text-[10px] text-slate-400">PM2.5: ${latest.pm2_5} µg/m³ | PM10: ${latest.pm10} µg/m³</p>
+                            <p class="text-[9px] uppercase tracking-wider text-slate-500">Source: ${latest.source}</p>
+                        </div>
+                    `);
+
+                    mapLayerGroup.addLayer(circleMarker);
+
                     const card = document.createElement("div");
-                    card.className = "p-5 rounded-xl border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition flex flex-col justify-between min-h-[160px]";
+                    card.className = "p-3 rounded-lg border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition flex items-center justify-between cursor-pointer";
+                    card.onclick = () => {
+                        map.setView([zone.latitude, zone.longitude], 13);
+                        circleMarker.openPopup();
+                    };
                     card.innerHTML = `
                         <div>
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <h3 class="font-semibold text-slate-100">${zone.name}</h3>
-                                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">Source: ${latest.source}</span>
-                                </div>
-                                <div class="text-right">
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${details.color}">AQI: ${latest.aqi}</span>
-                                    <span class="block text-[10px] font-medium text-slate-300 mt-1">${details.label}</span>
-                                </div>
-                            </div>
-                            <p class="text-xs text-slate-400 mb-4">Lat: ${zone.latitude.toFixed(2)}, Lon: ${zone.longitude.toFixed(2)}</p>
+                            <h4 class="font-medium text-xs text-slate-200">${zone.name}</h4>
+                            <span class="text-[10px] text-slate-400 uppercase tracking-wider">Source: ${latest.source}</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800/60 text-xs">
-                            <div>
-                                <span class="text-slate-500 block">PM 2.5</span>
-                                <span class="font-medium text-slate-200">${latest.pm2_5} µg/m³</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block">PM 10</span>
-                                <span class="font-medium text-slate-200">${latest.pm10} µg/m³</span>
-                            </div>
+                        <div class="text-right">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${details.badge}">AQI: ${latest.aqi}</span>
+                            <span class="block text-[10px] font-medium text-slate-300 mt-1">${details.label}</span>
                         </div>
                     `;
-                    zonesContainer.appendChild(card);
+                    zonesListContainer.appendChild(card);
                 }
 
                 // Fetch Reports
@@ -197,7 +317,7 @@
                         item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800/80";
                         item.innerHTML = `
                             <div class="flex justify-between font-medium text-slate-300 mb-1">
-                                <span>${rep.category}</span>
+                                <span>⚠️ ${rep.category}</span>
                                 <span class="text-emerald-400 capitalize">${rep.verification_status}</span>
                             </div>
                             <p class="text-slate-400">${rep.description || 'No additional description provided.'}</p>
@@ -206,8 +326,12 @@
                     });
                 }
 
+                updateStatusBadge('connected', 'Live GIS Feed Active');
+
             } catch (err) {
-                console.error("Failed to load dashboard data:", err);
+                console.error("Failed to load GIS map data:", err);
+                updateStatusBadge('disconnected', 'Telemetry Offline');
+                showToast("Failed to fetch live regional telemetry", "error");
             }
         }
 
@@ -227,12 +351,13 @@
                 if (response.ok) {
                     document.getElementById("report-description").value = "";
                     loadDashboardData();
-                    alert("Hazard report submitted successfully!");
+                    showToast("Hazard report submitted successfully!", "success");
                 } else {
-                    alert("Failed to submit report.");
+                    showToast("Failed to submit hazard report.", "error");
                 }
             } catch (err) {
                 console.error("Error submitting report:", err);
+                showToast("Network error while submitting report.", "error");
             }
         }
 
