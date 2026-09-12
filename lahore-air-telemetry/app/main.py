@@ -1,18 +1,39 @@
 # app/main.py
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.database import init_db
 from app.routers import reports, telemetry, zones
+from app.services.ingest import fetch_and_store_owm_data, fetch_and_store_waqi_data
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Fetch live telemetry on boot
+    print("[Startup] Triggering live telemetry ingestion sweep...")
+    try:
+        fetch_and_store_owm_data()
+        fetch_and_store_waqi_data()
+    except Exception as e:
+        print(f"[Startup Error] Ingestion failed: {e}")
+    yield
+    # Shutdown (if any cleanup is needed)
+
+
+init_db()  # Ensure the database and tables are initialized before the app starts
 
 app = FastAPI(
     title="LahorePulse API",
     description="Air Quality and Hazard Telemetry Engine for Lahore (LexHack 2026)",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Enable CORS so local frontends can communicate easily
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,13 +42,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount Static Frontend
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Include Routers
 app.include_router(zones.router)
 app.include_router(telemetry.router)
 app.include_router(reports.router)
 
 
-@app.get("/", tags=["Root"])
+@app.get("/api/health", tags=["Root"])
 def root_health_check():
     return {
         "status": "online",
@@ -35,12 +59,6 @@ def root_health_check():
         "event": "LexHack 2026",
         "docs_url": "/docs",
     }
-
-
-# Mount static files for the frontend
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Add a redirect to the root url so it automatically goes to the dashboard
 
 
 @app.get("/", tags=["Root"])

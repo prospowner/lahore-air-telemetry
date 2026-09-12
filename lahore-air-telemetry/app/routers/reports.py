@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
 
-@router.post("/", response_model=ReportResponse, status_code=201)
+@router.post("", response_model=ReportResponse, status_code=201)
 def create_report(report_data: ReportCreate, db: Session = Depends(get_db)):
     """Submit a crowd-sourced local hazard report (e.g., waste burning, heavy smoke)."""
     zone = db.query(Zone).filter(Zone.id == report_data.zone_id).first()
@@ -29,7 +29,7 @@ def create_report(report_data: ReportCreate, db: Session = Depends(get_db)):
     return new_report
 
 
-@router.get("/", response_model=List[ReportResponse])
+@router.get("", response_model=List[ReportResponse])
 def get_reports(db: Session = Depends(get_db)):
     """Retrieve all submitted community hazard reports."""
     reports = db.query(Report).order_by(Report.submitted_at.desc()).all()

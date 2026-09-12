@@ -103,6 +103,28 @@
     <script>
         const API_BASE = "http://127.0.0.1:8000";
 
+        // Helper to compute AQI status label and color styling client-side
+        function getAqiDetails(aqi, source) {
+            if (source === "openweathermap") {
+                const map = {
+                    1: { label: "Good", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+                    2: { label: "Fair", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
+                    3: { label: "Moderate", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+                    4: { label: "Poor", color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+                    5: { label: "Very Poor", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" }
+                };
+                return map[aqi] || { label: "Unknown", color: "bg-slate-800 text-slate-400 border-slate-700" };
+            }
+
+            // Standard EPA index for WAQI
+            if (aqi <= 50) return { label: "Good", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+            if (aqi <= 100) return { label: "Moderate", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" };
+            if (aqi <= 150) return { label: "Sensitive Groups", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+            if (aqi <= 200) return { label: "Unhealthy", color: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+            if (aqi <= 300) return { label: "Very Unhealthy", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+            return { label: "Hazardous", color: "bg-red-950/40 text-red-400 border-red-500/30" };
+        }
+
         async function loadDashboardData() {
             try {
                 // Fetch Zones
@@ -127,21 +149,23 @@
                     const telLogs = await telRes.json();
                     const latest = telLogs.length > 0 ? telLogs[0] : { aqi: "N/A", pm2_5: "N/A", pm10: "N/A", source: "None" };
 
-                    // Determine color badge based on AQI
-                    let badgeColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-                    let aqiText = latest.aqi;
-                    if (latest.aqi > 150) badgeColor = "bg-rose-500/10 text-rose-400 border-rose-500/20";
-                    else if (latest.aqi > 100) badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                    else if (latest.aqi > 50) badgeColor = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+                    // Get qualitative details
+                    const details = latest.aqi !== "N/A" ? getAqiDetails(latest.aqi, latest.source) : { label: "No Data", color: "bg-slate-800 text-slate-400 border-slate-700" };
 
                     // Render Zone Card
                     const card = document.createElement("div");
-                    card.className = "p-5 rounded-xl border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition flex flex-col justify-between";
+                    card.className = "p-5 rounded-xl border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition flex flex-col justify-between min-h-[160px]";
                     card.innerHTML = `
                         <div>
                             <div class="flex justify-between items-start mb-2">
-                                <h3 class="font-semibold text-slate-100">${zone.name}</h3>
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeColor}">AQI: ${aqiText}</span>
+                                <div>
+                                    <h3 class="font-semibold text-slate-100">${zone.name}</h3>
+                                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">Source: ${latest.source}</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${details.color}">AQI: ${latest.aqi}</span>
+                                    <span class="block text-[10px] font-medium text-slate-300 mt-1">${details.label}</span>
+                                </div>
                             </div>
                             <p class="text-xs text-slate-400 mb-4">Lat: ${zone.latitude.toFixed(2)}, Lon: ${zone.longitude.toFixed(2)}</p>
                         </div>

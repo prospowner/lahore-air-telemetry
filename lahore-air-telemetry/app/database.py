@@ -28,7 +28,10 @@ def get_db():
         db.close()
 
 
-# Explicitly import models here so Base registers them immediately
-from app.models.report import Report
-from app.models.telemetry import TelemetryLog
-from app.models.zone import Zone
+def init_db():
+    """Import models and create tables to avoid circular imports."""
+    from app.models.report import Report
+    from app.models.telemetry import TelemetryLog
+    from app.models.zone import Zone
+
+    Base.metadata.create_all(bind=engine)

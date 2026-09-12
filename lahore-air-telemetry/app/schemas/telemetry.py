@@ -12,6 +12,8 @@ class TelemetryResponse(BaseModel):
     pm10: float
     source: str
     recorded_at: datetime
+    status_label: str
+    status_color: str
 
     class Config:
         from_attributes = True
