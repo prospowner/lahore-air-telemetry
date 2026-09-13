@@ -56,6 +56,25 @@
         .toast-exit {
             animation: fadeOut 0.3s ease-in forwards;
         }
+
+        /* Custom Scrollbar for Triage Grid */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
     </style>
 </head>
 
@@ -109,7 +128,7 @@
             </div>
         </section>
 
-        <!-- Right Column: Hazard Report Submission Form -->
+        <!-- Right Column: Hazard Report Submission Form & Authority Triage View -->
         <section class="space-y-6">
             <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
                 <h2 class="text-lg font-semibold text-slate-200 mb-2">Report Community Hazard</h2>
@@ -154,6 +173,27 @@
                 <h3 class="text-sm font-semibold text-slate-200 mb-3">Recent Hazard Logs</h3>
                 <div id="reports-feed" class="space-y-3 text-xs">
                     <p class="text-slate-500">Loading reports...</p>
+                </div>
+            </div>
+
+            <!-- Government Authority Triage Dashboard View -->
+            <div class="p-6 rounded-xl border border-emerald-500/20 bg-slate-900/40 shadow-xl relative overflow-hidden">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none">
+                </div>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+                        <span>🛡️</span> Authority Triage Console
+                    </h3>
+                    <span
+                        class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono">ADMIN
+                        MODE</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-4">Official administrative panel to triage and update community
+                    hazard verification states.</p>
+
+                <div id="admin-triage-feed" class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                    <p class="text-slate-500 text-xs">Loading triage console...</p>
                 </div>
             </div>
         </section>
@@ -303,15 +343,21 @@
                     zonesListContainer.appendChild(card);
                 }
 
-                // Fetch Reports
+                // Fetch Reports & Render both Public Feed & Admin Triage Console
                 const repRes = await fetch(`${API_BASE}/api/reports`);
                 const reports = await repRes.json();
+
                 const reportsFeed = document.getElementById("reports-feed");
+                const adminTriageFeed = document.getElementById("admin-triage-feed");
 
                 reportsFeed.innerHTML = "";
+                adminTriageFeed.innerHTML = "";
+
                 if (reports.length === 0) {
                     reportsFeed.innerHTML = `<p class="text-slate-500">No hazard reports logged yet.</p>`;
+                    adminTriageFeed.innerHTML = `<p class="text-slate-500 text-xs">No pending hazard reports to triage.</p>`;
                 } else {
+                    // Public Feed (Top 5)
                     reports.slice(0, 5).forEach(rep => {
                         const item = document.createElement("div");
                         item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800/80";
@@ -323,6 +369,36 @@
                             <p class="text-slate-400">${rep.description || 'No additional description provided.'}</p>
                         `;
                         reportsFeed.appendChild(item);
+                    });
+
+                    // Admin Triage Console Feed (All reports with interactive status controls)
+                    reports.forEach(rep => {
+                        const triageCard = document.createElement("div");
+                        triageCard.className = "p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-2";
+
+                        // Badge color mapping for verification status
+                        let statusBadgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                        if (rep.verification_status === 'Resolved') statusBadgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                        if (rep.verification_status === 'False Report') statusBadgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/20";
+
+                        triageCard.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <span class="font-semibold text-slate-200">#${rep.id} - ${rep.category}</span>
+                                    <p class="text-slate-400 mt-0.5">${rep.description || 'No description provided.'}</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${statusBadgeClass}">${rep.verification_status}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
+                                <span class="text-slate-500">Zone ID: ${rep.zone_id}</span>
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="updateReportStatus(${rep.id}, 'Investigating')" class="px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition font-medium">Investigating</button>
+                                    <button onclick="updateReportStatus(${rep.id}, 'Resolved')" class="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition font-medium">Resolve</button>
+                                    <button onclick="updateReportStatus(${rep.id}, 'False Report')" class="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition font-medium">Dismiss</button>
+                                </div>
+                            </div>
+                        `;
+                        adminTriageFeed.appendChild(triageCard);
                     });
                 }
 
@@ -358,6 +434,26 @@
             } catch (err) {
                 console.error("Error submitting report:", err);
                 showToast("Network error while submitting report.", "error");
+            }
+        }
+
+        // Authority Triage Status Updater Handler
+        async function updateReportStatus(reportId, status) {
+            try {
+                const response = await fetch(`${API_BASE}/api/reports/${reportId}/status?status=${encodeURIComponent(status)}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" }
+                });
+
+                if (response.ok) {
+                    loadDashboardData();
+                    showToast(`Report #${reportId} status updated to '${status}'`, "success");
+                } else {
+                    showToast(`Failed to update report #${reportId} status.`, "error");
+                }
+            } catch (err) {
+                console.error("Error updating report status:", err);
+                showToast("Network error while updating triage status.", "error");
             }
         }
 
