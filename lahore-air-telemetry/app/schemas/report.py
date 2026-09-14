@@ -1,4 +1,3 @@
-# app/schemas/report.py
 from datetime import datetime
 from typing import Optional
 
@@ -13,7 +12,13 @@ class ReportCreate(BaseModel):
 
 class ReportResponse(ReportCreate):
     id: int
+    image_url: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    upvotes: int
+    downvotes: int
     verification_status: str
+    moderation_status: str
     submitted_at: datetime
 
     class Config:

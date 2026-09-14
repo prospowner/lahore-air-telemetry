@@ -151,7 +151,8 @@
 
             <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
                 <h2 class="text-lg font-semibold text-slate-200 mb-2">Report Community Hazard</h2>
-                <p class="text-xs text-slate-400 mb-4">Submit local logs like waste burning or heavy smog accumulation.
+                <p class="text-xs text-slate-400 mb-4">Submit local logs like waste burning or heavy smog accumulation
+                    with geotagged EXIF image verification.
                 </p>
 
                 <form id="report-form" onsubmit="submitHazardReport(event)" class="space-y-4">
@@ -180,16 +181,23 @@
                             class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"></textarea>
                     </div>
 
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Attach Evidence Photo (EXIF Geotag
+                            Check)</label>
+                        <input type="file" id="report-image-file" accept="image/*"
+                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-400 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-slate-950 hover:file:bg-emerald-500">
+                    </div>
+
                     <button type="submit"
                         class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-950/50">
-                        Submit Report
+                        Submit Verified Report
                     </button>
                 </form>
             </div>
 
-            <!-- Recent Reports Feed -->
+            <!-- Recent Reports Feed with Upvoting & Image Previews -->
             <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40">
-                <h3 class="text-sm font-semibold text-slate-200 mb-3">Recent Hazard Logs</h3>
+                <h3 class="text-sm font-semibold text-slate-200 mb-3">Recent Hazard Logs (Crowdsourced)</h3>
                 <div id="reports-feed" class="space-y-3 text-xs">
                     <p class="text-slate-500">Loading reports...</p>
                 </div>
@@ -227,7 +235,6 @@
         let map = L.map('map', { zoomControl: false }).setView([31.5204, 74.3587], 11);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Natively dark Esri World Dark Gray Canvas (100% free, no API key or watermarks required)
         L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
             maxZoom: 16
@@ -236,7 +243,6 @@
         let mapLayerGroup = L.layerGroup().addTo(map);
         let aqiChartInstance = null;
 
-        // Modern Toast Notification Engine replacing standard browser alert()
         function showToast(message, type = 'success') {
             const container = document.getElementById("toast-container");
             const toast = document.createElement("div");
@@ -260,11 +266,8 @@
             }, 3500);
         }
 
-        // Real-time Status Badge Updater
         function updateStatusBadge(status, text) {
             const badge = document.getElementById("connection-badge");
-            const badgeText = document.getElementById("badge-text");
-
             if (status === 'connected') {
                 badge.className = "flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium shadow-sm transition-all duration-300";
                 badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span id="badge-text">${text}</span>`;
@@ -297,7 +300,6 @@
             return { label: "Hazardous", color: "#7f1d1d", badge: "bg-red-950/40 text-red-400 border-red-500/30" };
         }
 
-        // Render Live Predictive Forecast Chart
         function renderLiveForecastChart(currentAqi, windSpeed) {
             const ctx = document.getElementById('forecastChart').getContext('2d');
             const hours = [];
@@ -311,7 +313,7 @@
                 const dispersionFactor = 1 - ((windSpeed || 2.0) * 0.03);
                 let simulatedAqi = Math.round(currentAqi * Math.pow(dispersionFactor, i / 4));
 
-                if (i > 15 && i < 21) simulatedAqi *= 1.15; // Evening peak simulation
+                if (i > 15 && i < 21) simulatedAqi *= 1.15;
                 forecastData.push(Math.max(15, simulatedAqi));
             }
 
@@ -367,7 +369,6 @@
                 updateStatusBadge('syncing', 'Syncing Telemetry...');
                 mapLayerGroup.clearLayers();
 
-                // Fetch Zones
                 const zonesRes = await fetch(`${API_BASE}/api/zones`);
                 const zones = await zonesRes.json();
 
@@ -390,7 +391,7 @@
                     const latest = telLogs.length > 0 ? telLogs[0] : { aqi: 120, pm2_5: "N/A", pm10: "N/A", wind_speed: 2.0, source: "None" };
 
                     if (!primaryZoneTelemetry) {
-                        primaryZoneTelemetry = latest; // Grab first zone's telemetry for the default forecast graph
+                        primaryZoneTelemetry = latest;
                     }
 
                     const details = latest.aqi !== "N/A" ? getAqiDetails(latest.aqi, latest.source) : { label: "No Data", color: "#64748b", badge: "bg-slate-800 text-slate-400 border-slate-700" };
@@ -420,7 +421,6 @@
                     card.onclick = () => {
                         map.setView([zone.latitude, zone.longitude], 13);
                         circleMarker.openPopup();
-                        // Update forecast chart dynamically when clicking a specific zone
                         renderLiveForecastChart(latest.aqi !== "N/A" ? latest.aqi : 100, latest.wind_speed || 2.0);
                     };
                     card.innerHTML = `
@@ -436,7 +436,6 @@
                     zonesListContainer.appendChild(card);
                 }
 
-                // Initialize the forecast chart with the first available live telemetry value
                 if (primaryZoneTelemetry) {
                     renderLiveForecastChart(
                         primaryZoneTelemetry.aqi !== "N/A" ? primaryZoneTelemetry.aqi : 150,
@@ -444,7 +443,6 @@
                     );
                 }
 
-                // Fetch Reports & Render both Public Feed & Admin Triage Console
                 const repRes = await fetch(`${API_BASE}/api/reports`);
                 const reports = await repRes.json();
 
@@ -460,13 +458,32 @@
                 } else {
                     reports.slice(0, 5).forEach(rep => {
                         const item = document.createElement("div");
-                        item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800/80";
+                        item.className = "p-3 rounded-lg bg-slate-950 border border-slate-800/80 space-y-2";
+
+                        let exifBadge = rep.latitude && rep.longitude ?
+                            `<span class="text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1.5 py-0.5 rounded font-mono">📍 EXIF: ${rep.latitude.toFixed(2)}, ${rep.longitude.toFixed(2)}</span>` :
+                            `<span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">No EXIF Geotag</span>`;
+
+                        let imageTag = rep.image_url ? `<img src="${rep.image_url}" class="w-full h-28 object-cover rounded-md mt-2 border border-slate-800" />` : '';
+
                         item.innerHTML = `
-                            <div class="flex justify-between font-medium text-slate-300 mb-1">
+                            <div class="flex justify-between items-center font-medium text-slate-300">
                                 <span>⚠️ ${rep.category}</span>
-                                <span class="text-emerald-400 capitalize">${rep.verification_status}</span>
+                                ${exifBadge}
                             </div>
                             <p class="text-slate-400">${rep.description || 'No additional description provided.'}</p>
+                            ${imageTag}
+                            <div class="flex justify-between items-center pt-2 border-t border-slate-900">
+                                <span class="text-emerald-400 capitalize font-medium">Status: ${rep.verification_status}</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="voteReport(${rep.id}, 'up')" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800 flex items-center gap-1 font-medium transition">
+                                        👍 ${rep.upvotes || 0}
+                                    </button>
+                                    <button onclick="voteReport(${rep.id}, 'down')" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-rose-400 border border-slate-800 flex items-center gap-1 font-medium transition">
+                                        👎 ${rep.downvotes || 0}
+                                    </button>
+                                </div>
+                            </div>
                         `;
                         reportsFeed.appendChild(item);
                     });
@@ -488,7 +505,7 @@
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${statusBadgeClass}">${rep.verification_status}</span>
                             </div>
                             <div class="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
-                                <span class="text-slate-500">Zone ID: ${rep.zone_id}</span>
+                                <span class="text-slate-500">Votes: 👍 ${rep.upvotes} | 👎 ${rep.downvotes}</span>
                                 <div class="flex items-center gap-1.5">
                                     <button onclick="updateReportStatus(${rep.id}, 'Investigating')" class="px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition font-medium">Investigating</button>
                                     <button onclick="updateReportStatus(${rep.id}, 'Resolved')" class="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition font-medium">Resolve</button>
@@ -511,27 +528,50 @@
 
         async function submitHazardReport(event) {
             event.preventDefault();
-            const zone_id = parseInt(document.getElementById("report-zone-select").value);
+            const zone_id = document.getElementById("report-zone-select").value;
             const category = document.getElementById("report-category").value;
             const description = document.getElementById("report-description").value;
+            const fileInput = document.getElementById("report-image-file").files[0];
+
+            const formData = new FormData();
+            formData.append("zone_id", zone_id);
+            formData.append("category", category);
+            formData.append("description", description);
+            if (fileInput) {
+                formData.append("file", fileInput);
+            }
 
             try {
                 const response = await fetch(`${API_BASE}/api/reports`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ zone_id, category, description })
+                    body: formData
                 });
 
                 if (response.ok) {
                     document.getElementById("report-description").value = "";
+                    document.getElementById("report-image-file").value = "";
                     loadDashboardData();
-                    showToast("Hazard report submitted successfully!", "success");
+                    showToast("Verified hazard report submitted!", "success");
                 } else {
-                    showToast("Failed to submit hazard report.", "error");
+                    const errData = await response.json();
+                    showToast(errData.detail || "Submission failed.", "error");
                 }
             } catch (err) {
                 console.error("Error submitting report:", err);
                 showToast("Network error while submitting report.", "error");
+            }
+        }
+
+        async function voteReport(reportId, action) {
+            try {
+                const res = await fetch(`${API_BASE}/api/reports/${reportId}/vote?action=${action}`, { method: "PATCH" });
+                if (res.ok) {
+                    loadDashboardData();
+                    showToast("Vote recorded!", "success");
+                }
+            } catch (err) {
+                console.error("Voting error:", err);
+                showToast("Failed to record vote.", "error");
             }
         }
 
@@ -554,7 +594,6 @@
             }
         }
 
-        // Initial Load on page open
         loadDashboardData();
     </script>
 </body>
