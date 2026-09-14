@@ -6,7 +6,16 @@ from app.database import get_db
 from app.models.report import Report
 from app.models.zone import Zone
 from app.schemas.report import ReportResponse
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from PIL import ExifTags, Image
 from sqlalchemy.orm import Session
 
@@ -16,6 +25,9 @@ UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 PROFANITY_LIST = ["spam", "badword1"]  # Add relevant filter keywords if needed
+
+# Track user votes by client IP to prevent multi-voting: {report_id: {client_ip: "up" | "down"}}
+report_votes_tracker: dict[int, dict[str, str]] = {}
 
 
 def check_profanity(text: str) -> bool:
@@ -120,24 +132,50 @@ def get_reports(db: Session = Depends(get_db)):
 @router.patch("/{report_id}/vote")
 def vote_report(
     report_id: int,
-    action: str = Query(..., regex="^(up|down)$"),
+    request: Request,
+    action: str = Query(..., pattern="^(up|down)$"),
     db: Session = Depends(get_db),
 ):
-    """Community upvoting or downvoting endpoint for hazard reports."""
+    """Vote on a report with strict single-vote enforcement per IP and toggle behavior."""
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    if action == "up":
-        report.upvotes += 1
-    elif action == "down":
-        report.downvotes += 1
+    client_ip = request.client.host
+
+    if report_id not in report_votes_tracker:
+        report_votes_tracker[report_id] = {}
+
+    previous_vote = report_votes_tracker[report_id].get(client_ip)
+
+    if previous_vote == action:
+        # Toggle off: user clicked the same vote button again to retract
+        report_votes_tracker[report_id].pop(client_ip)
+        if action == "up":
+            report.upvotes = max(0, report.upvotes - 1)
+        else:
+            report.downvotes = max(0, report.downvotes - 1)
+        message = "Vote retracted"
+    else:
+        # Revert previous vote if switching sides (e.g. up to down)
+        if previous_vote == "up":
+            report.upvotes = max(0, report.upvotes - 1)
+        elif previous_vote == "down":
+            report.downvotes = max(0, report.downvotes - 1)
+
+        # Apply new vote
+        if action == "up":
+            report.upvotes += 1
+        elif action == "down":
+            report.downvotes += 1
+
+        report_votes_tracker[report_id][client_ip] = action
+        message = "Vote recorded"
 
     db.commit()
     db.refresh(report)
     return {
-        "message": "Vote recorded successfully",
-        "id": report.id,
+        "message": message,
         "upvotes": report.upvotes,
         "downvotes": report.downvotes,
     }
