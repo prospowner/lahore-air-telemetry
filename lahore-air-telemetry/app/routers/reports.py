@@ -129,14 +129,14 @@ def get_reports(db: Session = Depends(get_db)):
     return reports
 
 
-@router.patch("/{report_id}/vote")
+@router.post("/{report_id}/vote")
 def vote_report(
     report_id: int,
     request: Request,
-    action: str = Query(..., pattern="^(up|down)$"),
+    direction: str = Query(..., pattern="^(up|down)$"),
     db: Session = Depends(get_db),
 ):
-    """Vote on a report with strict single-vote enforcement per IP and toggle behavior."""
+    """Vote on a report with strict single-vote enforcement per IP, toggle behavior, and auto-escalation."""
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -148,10 +148,10 @@ def vote_report(
 
     previous_vote = report_votes_tracker[report_id].get(client_ip)
 
-    if previous_vote == action:
+    if previous_vote == direction:
         # Toggle off: user clicked the same vote button again to retract
         report_votes_tracker[report_id].pop(client_ip)
-        if action == "up":
+        if direction == "up":
             report.upvotes = max(0, report.upvotes - 1)
         else:
             report.downvotes = max(0, report.downvotes - 1)
@@ -164,13 +164,19 @@ def vote_report(
             report.downvotes = max(0, report.downvotes - 1)
 
         # Apply new vote
-        if action == "up":
+        if direction == "up":
             report.upvotes += 1
-        elif action == "down":
+        elif direction == "down":
             report.downvotes += 1
 
-        report_votes_tracker[report_id][client_ip] = action
+        report_votes_tracker[report_id][client_ip] = direction
         message = "Vote recorded"
+
+    # Threshold Auto-Escalation Logic
+    net_upvotes = report.upvotes - report.downvotes
+    if net_upvotes >= 5 and report.verification_status == "Pending":
+        report.verification_status = "High Priority"
+        message += " and report auto-escalated to High Priority!"
 
     db.commit()
     db.refresh(report)
@@ -178,6 +184,22 @@ def vote_report(
         "message": message,
         "upvotes": report.upvotes,
         "downvotes": report.downvotes,
+        "verification_status": report.verification_status,
+    }
+
+    # Threshold Auto-Escalation Logic
+    net_upvotes = report.upvotes - report.downvotes
+    if net_upvotes >= 5 and report.verification_status == "Pending":
+        report.verification_status = "High Priority"
+        message += " and report auto-escalated to High Priority!"
+
+    db.commit()
+    db.refresh(report)
+    return {
+        "message": message,
+        "upvotes": report.upvotes,
+        "downvotes": report.downvotes,
+        "verification_status": report.verification_status,
     }
 
 
@@ -187,9 +209,15 @@ def update_report_status(
 ):
     """
     Update the verification status of a community hazard report (Authority Triage).
-    Allowed states: Pending, Investigating, Resolved, False Report.
+    Allowed states: Pending, High Priority, Investigating, Resolved, False Report.
     """
-    allowed_statuses = ["Pending", "Investigating", "Resolved", "False Report"]
+    allowed_statuses = [
+        "Pending",
+        "High Priority",
+        "Investigating",
+        "Resolved",
+        "False Report",
+    ]
     if status not in allowed_statuses:
         raise HTTPException(
             status_code=400,
