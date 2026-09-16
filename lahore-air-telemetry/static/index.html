@@ -85,13 +85,26 @@
     <!-- Toast Container for Modern Notifications -->
     <div id="toast-container" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none"></div>
 
-    <!-- Header Section -->
+    <!-- Header Section with Tab Switching -->
     <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-xl font-bold tracking-tight text-emerald-400">LahorePulse 🌆</h1>
                 <p class="text-xs text-slate-400">GIS Air Quality & Hazard Telemetry Engine (LexHack 2026)</p>
             </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <button onclick="switchTab('citizen')" id="tab-citizen"
+                    class="px-4 py-1.5 rounded-md text-xs font-medium transition bg-emerald-600 text-slate-950 shadow">
+                    Citizen Portal
+                </button>
+                <button onclick="switchTab('admin')" id="tab-admin"
+                    class="px-4 py-1.5 rounded-md text-xs font-medium transition text-slate-400 hover:text-slate-200">
+                    Authority Triage
+                </button>
+            </div>
+
             <div class="flex items-center gap-3">
                 <!-- Real-time Status Badge System -->
                 <div id="connection-badge"
@@ -103,127 +116,157 @@
         </div>
     </header>
 
-    <!-- Main Content Grid -->
-    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Main Content Layout -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
 
-        <!-- Left 2 Columns: GIS Map & Zone Summary -->
-        <section class="lg:col-span-2 space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-lg font-semibold text-slate-200">Interactive Regional Telemetry Map</h2>
-                <button onclick="loadDashboardData()"
-                    class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-md transition font-medium">Refresh
-                    Telemetry</button>
-            </div>
+        <!-- ================= CITIZEN PORTAL VIEW ================= -->
+        <div id="view-citizen" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left 2 Columns: GIS Map & Zone Summary -->
+            <section class="lg:col-span-2 space-y-6">
+                <!-- Global Emergency Alert Banner Container -->
+                <div id="global-advisory-banner"></div>
 
-            <!-- Leaflet Map Container -->
-            <div
-                class="relative w-full h-[450px] rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden shadow-xl">
-                <div id="map" class="w-full h-full z-10"></div>
-            </div>
-
-            <!-- Quick Zone Status List Cards -->
-            <div>
-                <h3 class="text-sm font-semibold text-slate-300 mb-3">Zone Breakdown</h3>
-                <div id="zones-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <!-- Injected via JS -->
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-slate-200">Interactive Regional Telemetry Map</h2>
+                    <button onclick="loadDashboardData()"
+                        class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-md transition font-medium">Refresh
+                        Telemetry</button>
                 </div>
-            </div>
-        </section>
 
-        <!-- Right Column: Hazard Report Submission Form & Authority Triage View -->
-        <section class="space-y-6">
-
-            <!-- Live 24-Hour Predictive Forecasting Panel -->
-            <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                        <span>📈</span> 24-Hour AQI Predictive Forecast
-                    </h3>
-                    <span
-                        class="text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded font-mono">LIVE
-                        MODEL</span>
+                <!-- Leaflet Map Container -->
+                <div
+                    class="relative w-full h-[450px] rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden shadow-xl">
+                    <div id="map" class="w-full h-full z-10"></div>
                 </div>
-                <p class="text-xs text-slate-400 mb-4">Dispersion curve driven by active wind speed and telemetry.</p>
-                <div class="relative w-full h-[200px]">
-                    <canvas id="forecastChart"></canvas>
+
+                <!-- Quick Zone Status List Cards -->
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-300 mb-3">Zone Breakdown</h3>
+                    <div id="zones-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Injected via JS -->
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
-                <h2 class="text-lg font-semibold text-slate-200 mb-2">Report Community Hazard</h2>
-                <p class="text-xs text-slate-400 mb-4">Submit local logs like waste burning or heavy smog accumulation
-                    with geotagged EXIF image verification.
-                </p>
+            <!-- Right Column: Forecasting & Hazard Report Form -->
+            <section class="space-y-6">
 
-                <form id="report-form" onsubmit="submitHazardReport(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Select Zone</label>
-                        <select id="report-zone-select" required
-                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                            <!-- Populated via JS -->
-                        </select>
+                <!-- Live 24-Hour Predictive Forecasting Panel -->
+                <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <span>📈</span> 24-Hour AQI Predictive Forecast
+                        </h3>
+                        <span
+                            class="text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded font-mono">LIVE
+                            MODEL</span>
                     </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Hazard Category</label>
-                        <select id="report-category"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                            <option value="Garbage Burning">Garbage Burning</option>
-                            <option value="Heavy Smoke">Industrial Smoke / Brick Kilns</option>
-                            <option value="Dust / Construction">Dust & Construction</option>
-                            <option value="Other Hazard">Other Hazard</option>
-                        </select>
+                    <p class="text-xs text-slate-400 mb-4">Dispersion curve driven by active wind speed and telemetry.
+                    </p>
+                    <div class="relative w-full h-[200px]">
+                        <canvas id="forecastChart"></canvas>
                     </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Description (Optional)</label>
-                        <textarea id="report-description" rows="3" placeholder="Provide brief details..."
-                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Attach Evidence Photo (EXIF Geotag
-                            Check)</label>
-                        <input type="file" id="report-image-file" accept="image/*"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-400 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-slate-950 hover:file:bg-emerald-500">
-                    </div>
-
-                    <button type="submit"
-                        class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-950/50">
-                        Submit Verified Report
-                    </button>
-                </form>
-            </div>
-
-            <!-- Recent Reports Feed with Upvoting & Image Previews -->
-            <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40">
-                <h3 class="text-sm font-semibold text-slate-200 mb-3">Recent Hazard Logs (Crowdsourced)</h3>
-                <div id="reports-feed" class="space-y-3 text-xs">
-                    <p class="text-slate-500">Loading reports...</p>
                 </div>
-            </div>
 
-            <!-- Government Authority Triage Dashboard View -->
+                <!-- Hazard Report Submission Form -->
+                <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
+                    <h2 class="text-lg font-semibold text-slate-200 mb-2">Report Community Hazard</h2>
+                    <p class="text-xs text-slate-400 mb-4">Submit local logs like waste burning or heavy smog
+                        accumulation
+                        with geotagged EXIF image verification.
+                    </p>
+
+                    <form id="report-form" onsubmit="submitHazardReport(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Select Zone</label>
+                            <select id="report-zone-select" required
+                                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                                <!-- Populated via JS -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Hazard Category</label>
+                            <select id="report-category"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                                <option value="Garbage Burning">Garbage Burning</option>
+                                <option value="Heavy Smoke">Industrial Smoke / Brick Kilns</option>
+                                <option value="Dust / Construction">Dust & Construction</option>
+                                <option value="Other Hazard">Other Hazard</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Description (Optional)</label>
+                            <textarea id="report-description" rows="3" placeholder="Provide brief details..."
+                                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Attach Evidence Photo (EXIF
+                                Geotag Check)</label>
+                            <input type="file" id="report-image-file" accept="image/*"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-400 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-slate-950 hover:file:bg-emerald-500">
+                        </div>
+
+                        <button type="submit"
+                            class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-950/50">
+                            Submit Verified Report
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Recent Reports Feed with Upvoting & Image Previews -->
+                <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40">
+                    <h3 class="text-sm font-semibold text-slate-200 mb-3">Recent Hazard Logs (Crowdsourced)</h3>
+                    <div id="reports-feed" class="space-y-3 text-xs">
+                        <p class="text-slate-500">Loading reports...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ================= AUTHORITY TRIAGE VIEW ================= -->
+        <div id="view-admin" class="hidden space-y-6 max-w-4xl mx-auto">
             <div class="p-6 rounded-xl border border-emerald-500/20 bg-slate-900/40 shadow-xl relative overflow-hidden">
                 <div
-                    class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none">
+                    class="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none">
                 </div>
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="text-sm font-semibold text-emerald-400 flex items-center gap-2">
-                        <span>🛡️</span> Authority Triage Console
-                    </h3>
-                    <span
-                        class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono">ADMIN
-                        MODE</span>
-                </div>
-                <p class="text-xs text-slate-400 mb-4">Official administrative panel to triage and update community
-                    hazard verification states.</p>
 
-                <div id="admin-triage-feed" class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-emerald-400 flex items-center gap-2">
+                            <span>🛡️</span> Authority Triage Console & Dispatch Dashboard
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Official administrative panel to monitor, verify, and
+                            resolve crowdsourced environmental violation logs.</p>
+                    </div>
+                    <span
+                        class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">ADMIN
+                        SECURE</span>
+                </div>
+
+                <div class="flex gap-4 mb-6 text-xs border-b border-slate-800 pb-4">
+                    <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block">Total Reports Logged</span>
+                        <span id="admin-stat-total" class="text-lg font-bold text-slate-100">0</span>
+                    </div>
+                    <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block">Pending Investigation</span>
+                        <span id="admin-stat-pending" class="text-lg font-bold text-amber-400">0</span>
+                    </div>
+                    <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block">Resolved / Actioned</span>
+                        <span id="admin-stat-resolved" class="text-lg font-bold text-emerald-400">0</span>
+                    </div>
+                </div>
+
+                <!-- Admin Triage Grid Feed -->
+                <div id="admin-triage-feed" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
                     <p class="text-slate-500 text-xs">Loading triage console...</p>
                 </div>
             </div>
-        </section>
+        </div>
 
     </main>
 
@@ -242,6 +285,33 @@
 
         let mapLayerGroup = L.layerGroup().addTo(map);
         let aqiChartInstance = null;
+
+        function switchTab(tabName) {
+            const citizenView = document.getElementById("view-citizen");
+            const adminView = document.getElementById("view-admin");
+            const tabCitizen = document.getElementById("tab-citizen");
+            const tabAdmin = document.getElementById("tab-admin");
+
+            if (tabName === 'citizen') {
+                citizenView.classList.remove("hidden");
+                adminView.classList.add("hidden");
+
+                tabCitizen.className = "px-4 py-1.5 rounded-md text-xs font-medium transition bg-emerald-600 text-slate-950 shadow";
+                tabAdmin.className = "px-4 py-1.5 rounded-md text-xs font-medium transition text-slate-400 hover:text-slate-200";
+
+                // Refresh Leaflet map sizing when returning to the tab
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 100);
+
+            } else {
+                adminView.classList.remove("hidden");
+                citizenView.classList.add("hidden");
+
+                tabAdmin.className = "px-4 py-1.5 rounded-md text-xs font-medium transition bg-emerald-600 text-slate-950 shadow";
+                tabCitizen.className = "px-4 py-1.5 rounded-md text-xs font-medium transition text-slate-400 hover:text-slate-200";
+            }
+        }
 
         function showToast(message, type = 'success') {
             const container = document.getElementById("toast-container");
@@ -298,6 +368,30 @@
             if (aqi <= 200) return { label: "Unhealthy", color: "#f43f5e", badge: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
             if (aqi <= 300) return { label: "Very Unhealthy", color: "#a855f7", badge: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
             return { label: "Hazardous", color: "#7f1d1d", badge: "bg-red-950/40 text-red-400 border-red-500/30" };
+        }
+
+        function getHealthAdvisory(aqi, source) {
+            if (source === "openweathermap") {
+                if (aqi <= 1) return { text: "Air quality is satisfactory.", recommendation: "Safe for outdoor activities.", level: "good", badgeBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+                if (aqi <= 2) return { text: "Acceptable air quality.", recommendation: "Sensitive individuals should consider limiting prolonged outdoor exertion.", level: "fair", badgeBg: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" };
+                if (aqi <= 3) return { text: "Members of sensitive groups may experience health effects.", recommendation: "Unusually sensitive individuals should reduce outdoor exertion.", level: "moderate", badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+                if (aqi <= 4) return { text: "Everyone may begin to experience health effects.", recommendation: "N95 masks recommended outdoors. Limit heavy physical activity.", level: "poor", badgeBg: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+                return { text: "Health warning of emergency conditions.", recommendation: "Avoid outdoor exercise. Keep windows closed.", level: "hazardous", badgeBg: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+            }
+
+            if (aqi <= 50) {
+                return { text: "Air quality is good.", recommendation: "Enjoy your usual outdoor activities.", level: "good", badgeBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+            } else if (aqi <= 100) {
+                return { text: "Air quality is acceptable.", recommendation: "Unusually sensitive individuals should reduce prolonged outdoor exertion.", level: "moderate", badgeBg: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" };
+            } else if (aqi <= 150) {
+                return { text: "Members of sensitive groups may experience health effects.", recommendation: "Children, older adults, and people with heart/lung conditions should limit outdoor exertion.", level: "sensitive", badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+            } else if (aqi <= 200) {
+                return { text: "Health alert: everyone may experience health effects.", recommendation: "N95 masks recommended outdoors. Limit heavy physical activity.", level: "unhealthy", badgeBg: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+            } else if (aqi <= 300) {
+                return { text: "Health warning of emergency conditions.", recommendation: "Avoid outdoor exercise. Keep windows closed and air purifiers running.", level: "very-unhealthy", badgeBg: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+            } else {
+                return { text: "Hazardous emergency conditions.", recommendation: "Stay indoors completely. Avoid all physical outdoor activities.", level: "hazardous", badgeBg: "bg-red-950/40 text-red-400 border-red-500/30" };
+            }
         }
 
         function renderLiveForecastChart(currentAqi, windSpeed) {
@@ -379,6 +473,7 @@
                 zoneSelect.innerHTML = "";
 
                 let primaryZoneTelemetry = null;
+                let maxObservedAqi = 0;
 
                 for (const zone of zones) {
                     const option = document.createElement("option");
@@ -394,7 +489,12 @@
                         primaryZoneTelemetry = latest;
                     }
 
+                    if (latest.aqi !== "N/A" && latest.aqi > maxObservedAqi) {
+                        maxObservedAqi = latest.aqi;
+                    }
+
                     const details = latest.aqi !== "N/A" ? getAqiDetails(latest.aqi, latest.source) : { label: "No Data", color: "#64748b", badge: "bg-slate-800 text-slate-400 border-slate-700" };
+                    const advisory = latest.aqi !== "N/A" ? getHealthAdvisory(latest.aqi, latest.source) : { text: "No telemetry available.", recommendation: "Check back later.", badgeBg: "bg-slate-800 text-slate-400 border-slate-700" };
 
                     const circleMarker = L.circleMarker([zone.latitude, zone.longitude], {
                         radius: 12,
@@ -406,10 +506,16 @@
                     });
 
                     circleMarker.bindPopup(`
-                        <div class="p-2 space-y-1">
-                            <h4 class="font-bold text-sm text-emerald-400">${zone.name}</h4>
-                            <p class="text-xs text-slate-300">AQI: <span class="font-bold">${latest.aqi}</span> (${details.label})</p>
-                            <p class="text-[10px] text-slate-400">PM2.5: ${latest.pm2_5} µg/m³ | Wind: ${latest.wind_speed || 2.0} m/s</p>
+                        <div class="p-2.5 space-y-2 max-w-xs">
+                            <div>
+                                <h4 class="font-bold text-sm text-emerald-400">${zone.name}</h4>
+                                <p class="text-xs text-slate-300">AQI: <span class="font-bold">${latest.aqi}</span> (${details.label})</p>
+                                <p class="text-[10px] text-slate-400">PM2.5: ${latest.pm2_5} µg/m³ | Wind: ${latest.wind_speed || 2.0} m/s</p>
+                            </div>
+                            <div class="p-2 rounded bg-slate-900/90 border border-slate-800 text-[11px] space-y-1">
+                                <span class="block font-semibold text-amber-300">🛡️ Health Advisory:</span>
+                                <p class="text-slate-300 leading-tight">${advisory.recommendation}</p>
+                            </div>
                             <p class="text-[9px] uppercase tracking-wider text-slate-500">Source: ${latest.source}</p>
                         </div>
                     `);
@@ -424,16 +530,33 @@
                         renderLiveForecastChart(latest.aqi !== "N/A" ? latest.aqi : 100, latest.wind_speed || 2.0);
                     };
                     card.innerHTML = `
-                        <div>
+                        <div class="space-y-1.5 flex-1 pr-2">
                             <h4 class="font-medium text-xs text-slate-200">${zone.name}</h4>
-                            <span class="text-[10px] text-slate-400 uppercase tracking-wider">Source: ${latest.source}</span>
+                            <p class="text-[11px] text-slate-400 line-clamp-1">💡 ${advisory.recommendation}</p>
+                            <span class="text-[9px] text-slate-500 uppercase tracking-wider">Source: ${latest.source}</span>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right shrink-0">
                             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${details.badge}">AQI: ${latest.aqi}</span>
                             <span class="block text-[10px] font-medium text-slate-300 mt-1">${details.label}</span>
                         </div>
                     `;
                     zonesListContainer.appendChild(card);
+                }
+
+                // Global Banner Check for Severe AQI Levels (> 150)
+                const bannerContainer = document.getElementById("global-advisory-banner");
+                if (maxObservedAqi > 150) {
+                    bannerContainer.innerHTML = `
+                        <div class="bg-rose-950/60 border border-rose-500/30 text-rose-200 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between gap-3 mb-6 shadow-lg backdrop-blur">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">⚠️</span>
+                                <span><strong>Severe Smog Alert:</strong> Regional AQI levels exceed safe thresholds. N95 masks strongly recommended outdoors.</span>
+                            </div>
+                            <span class="font-mono text-[10px] uppercase bg-rose-500/20 px-2 py-0.5 rounded text-rose-300 shrink-0">Active Advisory</span>
+                        </div>
+                    `;
+                } else {
+                    bannerContainer.innerHTML = "";
                 }
 
                 if (primaryZoneTelemetry) {
@@ -448,6 +571,15 @@
 
                 const reportsFeed = document.getElementById("reports-feed");
                 const adminTriageFeed = document.getElementById("admin-triage-feed");
+
+                // Update Admin Stats
+                const statTotal = document.getElementById("admin-stat-total");
+                const statPending = document.getElementById("admin-stat-pending");
+                const statResolved = document.getElementById("admin-stat-resolved");
+
+                if (statTotal) statTotal.textContent = reports.length;
+                if (statPending) statPending.textContent = reports.filter(r => r.verification_status === 'Pending' || r.verification_status === 'Investigating').length;
+                if (statResolved) statResolved.textContent = reports.filter(r => r.verification_status === 'Resolved').length;
 
                 reportsFeed.innerHTML = "";
                 adminTriageFeed.innerHTML = "";
@@ -517,84 +649,79 @@
                     });
                 }
 
-                updateStatusBadge('connected', 'Live GIS Feed Active');
-
+                updateStatusBadge('connected', 'Connected');
             } catch (err) {
-                console.error("Failed to load GIS map data:", err);
-                updateStatusBadge('disconnected', 'Telemetry Offline');
-                showToast("Failed to fetch live regional telemetry", "error");
+                console.error("Failed to load dashboard data:", err);
+                updateStatusBadge('error', 'Connection Error');
             }
         }
 
         async function submitHazardReport(event) {
             event.preventDefault();
-            const zone_id = document.getElementById("report-zone-select").value;
+            const zoneId = document.getElementById("report-zone-select").value;
             const category = document.getElementById("report-category").value;
             const description = document.getElementById("report-description").value;
-            const fileInput = document.getElementById("report-image-file").files[0];
+            const fileInput = document.getElementById("report-image-file");
 
             const formData = new FormData();
-            formData.append("zone_id", zone_id);
+            formData.append("zone_id", zoneId);
             formData.append("category", category);
             formData.append("description", description);
-            if (fileInput) {
-                formData.append("file", fileInput);
+            if (fileInput.files[0]) {
+                formData.append("file", fileInput.files[0]);
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/reports`, {
-                    method: "POST",
+                const res = await fetch(`${API_BASE}/api/reports`, {
+                    method: 'POST',
                     body: formData
                 });
 
-                if (response.ok) {
-                    document.getElementById("report-description").value = "";
-                    document.getElementById("report-image-file").value = "";
+                if (res.ok) {
+                    showToast("Hazard report submitted successfully with verification!");
+                    document.getElementById("report-form").reset();
                     loadDashboardData();
-                    showToast("Verified hazard report submitted!", "success");
                 } else {
-                    const errData = await response.json();
-                    showToast(errData.detail || "Submission failed.", "error");
+                    showToast("Failed to submit report. Please try again.", 'error');
                 }
             } catch (err) {
                 console.error("Error submitting report:", err);
-                showToast("Network error while submitting report.", "error");
+                showToast("Network error during submission.", 'error');
             }
         }
 
-        async function voteReport(reportId, action) {
+        async function voteReport(reportId, direction) {
             try {
-                const res = await fetch(`${API_BASE}/api/reports/${reportId}/vote?action=${action}`, { method: "PATCH" });
+                const res = await fetch(`${API_BASE}/api/reports/${reportId}/vote?direction=${direction}`, {
+                    method: 'POST'
+                });
                 if (res.ok) {
                     loadDashboardData();
-                    showToast("Vote recorded!", "success");
                 }
             } catch (err) {
-                console.error("Voting error:", err);
-                showToast("Failed to record vote.", "error");
+                console.error("Error voting:", err);
             }
         }
 
-        async function updateReportStatus(reportId, status) {
+        async function updateReportStatus(reportId, newStatus) {
             try {
-                const response = await fetch(`${API_BASE}/api/reports/${reportId}/status?status=${encodeURIComponent(status)}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" }
+                const res = await fetch(`${API_BASE}/api/reports/${reportId}/status?status=${encodeURIComponent(newStatus)}`, {
+                    method: 'PATCH'
                 });
-
-                if (response.ok) {
+                if (res.ok) {
+                    showToast(`Report #${reportId} updated to ${newStatus}`);
                     loadDashboardData();
-                    showToast(`Report #${reportId} status updated to '${status}'`, "success");
-                } else {
-                    showToast(`Failed to update report #${reportId} status.`, "error");
                 }
             } catch (err) {
-                console.error("Error updating report status:", err);
-                showToast("Network error while updating triage status.", "error");
+                console.error("Error updating status:", err);
+                showToast("Failed to update status", 'error');
             }
         }
 
-        loadDashboardData();
+        // Initial Load on Page Startup
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+        });
     </script>
 </body>
 
