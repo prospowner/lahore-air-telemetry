@@ -1,5 +1,7 @@
+import csv
 import os
 import shutil
+from io import StringIO
 from typing import List, Optional
 
 from app.database import get_db
@@ -16,6 +18,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
+from fastapi.responses import StreamingResponse
 from PIL import ExifTags, Image
 from sqlalchemy.orm import Session
 
@@ -129,6 +132,58 @@ def get_reports(db: Session = Depends(get_db)):
     return reports
 
 
+@router.get("/export/csv")
+def export_incident_logs(db: Session = Depends(get_db)):
+    """
+    Export all crowdsourced hazard reports and municipal triage logs as a downloadable CSV.
+    """
+    reports = db.query(Report).all()
+
+    csv_buffer = StringIO()
+    writer = csv.writer(csv_buffer)
+
+    writer.writerow(
+        [
+            "Report ID",
+            "Zone ID",
+            "Category",
+            "Description",
+            "Verification Status",
+            "Upvotes",
+            "Downvotes",
+            "Latitude",
+            "Longitude",
+            "Submitted At",
+        ]
+    )
+
+    for r in reports:
+        writer.writerow(
+            [
+                r.id,
+                r.zone_id,
+                r.category,
+                r.description or "",
+                r.verification_status,
+                r.upvotes,
+                r.downvotes,
+                r.latitude or "",
+                r.longitude or "",
+                r.submitted_at.isoformat() if r.submitted_at else "",
+            ]
+        )
+
+    csv_buffer.seek(0)
+
+    return StreamingResponse(
+        iter([csv_buffer.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=LahorePulse_Incident_Logs.csv"
+        },
+    )
+
+
 @router.post("/{report_id}/vote")
 def vote_report(
     report_id: int,
@@ -171,21 +226,6 @@ def vote_report(
 
         report_votes_tracker[report_id][client_ip] = direction
         message = "Vote recorded"
-
-    # Threshold Auto-Escalation Logic
-    net_upvotes = report.upvotes - report.downvotes
-    if net_upvotes >= 5 and report.verification_status == "Pending":
-        report.verification_status = "High Priority"
-        message += " and report auto-escalated to High Priority!"
-
-    db.commit()
-    db.refresh(report)
-    return {
-        "message": message,
-        "upvotes": report.upvotes,
-        "downvotes": report.downvotes,
-        "verification_status": report.verification_status,
-    }
 
     # Threshold Auto-Escalation Logic
     net_upvotes = report.upvotes - report.downvotes

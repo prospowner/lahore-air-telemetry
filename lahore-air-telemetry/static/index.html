@@ -240,31 +240,41 @@
                         <p class="text-xs text-slate-400 mt-1">Official operational metrics and dispatch panel to
                             monitor, verify, and resolve crowdsourced environmental violation logs.</p>
                     </div>
-                    <span
-                        class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">OFFICIAL
-                        SECURE</span>
-                </div>
 
-                <div class="flex gap-4 mb-6 text-xs border-b border-slate-800 pb-4">
-                    <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block">Total Reports Logged</span>
-                        <span id="admin-stat-total" class="text-lg font-bold text-slate-100">0</span>
-                    </div>
-                    <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block">Pending Investigation</span>
-                        <span id="admin-stat-pending" class="text-lg font-bold text-amber-400">0</span>
-                    </div>
-                    <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block">Resolved / Actioned</span>
-                        <span id="admin-stat-resolved" class="text-lg font-bold text-emerald-400">0</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportReportsCSV()"
+                            class="text-xs bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold px-3 py-1.5 rounded-md transition shadow">Export
+                            CSV</button>
+                        <span
+                            class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">OFFICIAL
+                            SECURE</span>
                     </div>
                 </div>
+                <span
+                    class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">OFFICIAL
+                    SECURE</span>
+            </div>
 
-                <!-- Admin Triage Grid Feed -->
-                <div id="admin-triage-feed" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                    <p class="text-slate-500 text-xs">Loading triage console...</p>
+            <div class="flex gap-4 mb-6 text-xs border-b border-slate-800 pb-4">
+                <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block">Total Reports Logged</span>
+                    <span id="admin-stat-total" class="text-lg font-bold text-slate-100">0</span>
+                </div>
+                <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block">Pending Investigation</span>
+                    <span id="admin-stat-pending" class="text-lg font-bold text-amber-400">0</span>
+                </div>
+                <div class="bg-slate-950 px-4 py-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block">Resolved / Actioned</span>
+                    <span id="admin-stat-resolved" class="text-lg font-bold text-emerald-400">0</span>
                 </div>
             </div>
+
+            <!-- Admin Triage Grid Feed -->
+            <div id="admin-triage-feed" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                <p class="text-slate-500 text-xs">Loading triage console...</p>
+            </div>
+        </div>
         </div>
 
     </main>
@@ -494,6 +504,54 @@
             }
         }
 
+
+        // admin page : csv download code
+        async function exportReportsCSV() {
+            try {
+                const res = await fetch('/api/reports');
+                if (!res.ok) throw new Error("Failed to fetch reports");
+                const reports = await res.json();
+
+                if (!reports || reports.length === 0) {
+                    alert("No reports available to export.");
+                    return;
+                }
+
+                // Build CSV headers
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "ID,Zone ID,Category,Description,Status,Upvotes,Downvotes,Created At\r\n";
+
+                // Append rows (with quote sanitization)
+                reports.forEach(r => {
+                    const desc = `"${(r.description || "").replace(/"/g, '""')}"`;
+                    const cat = `"${(r.category || "").replace(/"/g, '""')}"`;
+                    const status = `"${(r.status || "").replace(/"/g, '""')}"`;
+                    const row = [
+                        r.id,
+                        r.zone_id,
+                        cat,
+                        desc,
+                        status,
+                        r.upvotes || 0,
+                        r.downvotes || 0,
+                        r.created_at || ""
+                    ].join(",");
+                    csvContent += row + "\r\n";
+                });
+
+                // Trigger browser download via a temporary anchor element
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `hazard_reports_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (err) {
+                console.error("CSV export error:", err);
+                alert("Error generating CSV export.");
+            }
+        }
         async function voteReport(reportId, direction) {
             try {
                 const res = await fetch(`${API_BASE}/api/reports/${reportId}/vote?direction=${direction}`, {
