@@ -85,7 +85,7 @@
     <!-- Toast Container for Modern Notifications -->
     <div id="toast-container" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none"></div>
 
-    <!-- Header Section with Tab Switching -->
+    <!-- Header Section with Role-Based View Toggle -->
     <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
@@ -93,7 +93,7 @@
                 <p class="text-xs text-slate-400">GIS Air Quality & Hazard Telemetry Engine (LexHack 2026)</p>
             </div>
 
-            <!-- Navigation Tabs -->
+            <!-- Role-Based View Navigation Switch -->
             <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
                 <button onclick="switchTab('citizen')" id="tab-citizen"
                     class="px-4 py-1.5 rounded-md text-xs font-medium transition bg-emerald-600 text-slate-950 shadow">
@@ -101,7 +101,7 @@
                 </button>
                 <button onclick="switchTab('admin')" id="tab-admin"
                     class="px-4 py-1.5 rounded-md text-xs font-medium transition text-slate-400 hover:text-slate-200">
-                    Authority Triage
+                    Municipal Official (Triage)
                 </button>
             </div>
 
@@ -172,8 +172,7 @@
                 <div class="p-6 rounded-xl border border-slate-800 bg-slate-900/40 shadow-xl">
                     <h2 class="text-lg font-semibold text-slate-200 mb-2">Report Community Hazard</h2>
                     <p class="text-xs text-slate-400 mb-4">Submit local logs like waste burning or heavy smog
-                        accumulation
-                        with geotagged EXIF image verification.
+                        accumulation with geotagged EXIF image verification.
                     </p>
 
                     <form id="report-form" onsubmit="submitHazardReport(event)" class="space-y-4">
@@ -226,7 +225,7 @@
             </section>
         </div>
 
-        <!-- ================= AUTHORITY TRIAGE VIEW ================= -->
+        <!-- ================= MUNICIPAL OFFICIAL / AUTHORITY TRIAGE VIEW ================= -->
         <div id="view-admin" class="hidden space-y-6 max-w-4xl mx-auto">
             <div class="p-6 rounded-xl border border-emerald-500/20 bg-slate-900/40 shadow-xl relative overflow-hidden">
                 <div
@@ -236,13 +235,13 @@
                 <div class="flex justify-between items-center mb-4">
                     <div>
                         <h2 class="text-lg font-semibold text-emerald-400 flex items-center gap-2">
-                            <span>🛡️</span> Authority Triage Console & Dispatch Dashboard
+                            <span>🛡️</span> Municipal Official Triage Console & Dispatch Dashboard
                         </h2>
-                        <p class="text-xs text-slate-400 mt-1">Official administrative panel to monitor, verify, and
-                            resolve crowdsourced environmental violation logs.</p>
+                        <p class="text-xs text-slate-400 mt-1">Official operational metrics and dispatch panel to
+                            monitor, verify, and resolve crowdsourced environmental violation logs.</p>
                     </div>
                     <span
-                        class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">ADMIN
+                        class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">OFFICIAL
                         SECURE</span>
                 </div>
 
@@ -714,7 +713,7 @@
                                 <p class="text-slate-300 text-xs">${r.description || "No description provided."}</p>
                                 <div class="flex items-center gap-3 text-[10px] text-slate-400 pt-1">
                                     <span>Net Votes: <strong class="text-slate-200">${r.upvotes - r.downvotes}</strong> (▲${r.upvotes} / ▼${r.downvotes})</span>
-                                    <span>Lat/Lng: ${r.latitude ? `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}` : 'Not Geotagged'}</span>
+                                    <span>Lat/Lng: ${r.latitude ? `${r.latitude.toFixed(4)},${r.longitude.toFixed(4)}` : 'Not Geotagged'}</span>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 shrink-0">
