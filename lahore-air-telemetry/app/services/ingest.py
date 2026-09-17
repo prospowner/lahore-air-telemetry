@@ -1,4 +1,3 @@
-# app/services/ingest.py
 import os
 from datetime import datetime, timezone
 
@@ -7,6 +6,10 @@ import requests
 from app.database import SessionLocal
 from app.models.telemetry import TelemetryLog
 from app.models.zone import Zone
+
+# IMPORT DISCORD NOTIFIER HERE
+# (Adjust import path depending on whether notifications.py is in root or app/)
+from app.notifications import send_discord_alert
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,7 +18,6 @@ OWM_API_KEY = os.getenv("OWM_API_KEY")
 WAQI_API_KEY = os.getenv("WAQI_API_KEY")
 
 # Realistic urban variance multipliers to introduce localized differences
-# since regional APIs map all coordinates in a city to the same station/grid.
 ZONE_MULTIPLIERS = {
     "Old Lahore (Walled City)": 1.25,  # High traffic congestion, dense urban core
     "Gulberg": 1.12,  # Commercial hub, heavy traffic
@@ -110,6 +112,22 @@ def fetch_and_store_waqi_data():
                     print(
                         f"[WAQI] Logged telemetry for {zone.name} (AQI: {adjusted_aqi})"
                     )
+
+                    # --- TRIGGER DISCORD ALERT IF AQI > 200 ---
+                    if adjusted_aqi > 200:
+                        send_discord_alert(
+                            title=f"CRITICAL AIR QUALITY BREACH — {zone.name}",
+                            description=(
+                                f"⚠️ **Hazardous AQI Level Detected!**\n\n"
+                                f"• **Zone:** {zone.name}\n"
+                                f"• **Calculated AQI:** `{adjusted_aqi}`\n"
+                                f"• **PM2.5 Concentration:** `{pm2_5:.1f} µg/m³`\n"
+                                f"• **PM10 Concentration:** `{pm10:.1f} µg/m³`\n\n"
+                                f"*Immediate citizen advisory active for this area.*"
+                            ),
+                            severity_color=10181046,  # Dark Red / Purple
+                        )
+
                 else:
                     print(
                         f"[ERROR] WAQI returned non-ok status for {zone.name}: {data}"

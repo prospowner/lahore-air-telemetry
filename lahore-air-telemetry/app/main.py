@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
+from app.notifications import send_discord_alert
 from app.routers import reports, telemetry, zones
 from app.services.ingest import fetch_and_store_owm_data, fetch_and_store_waqi_data
 
