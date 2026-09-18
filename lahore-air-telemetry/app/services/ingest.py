@@ -19,11 +19,18 @@ WAQI_API_KEY = os.getenv("WAQI_API_KEY")
 
 # Realistic urban variance multipliers to introduce localized differences
 ZONE_MULTIPLIERS = {
-    "Old Lahore (Walled City)": 1.25,  # High traffic congestion, dense urban core
-    "Gulberg": 1.12,  # Commercial hub, heavy traffic
-    "Johar Town": 1.02,  # Mixed residential/commercial
-    "Model Town": 0.94,  # Open parks and planned layout
-    "DHA Phase 5": 0.82,  # Wide roads, planned green spaces
+    "Old Lahore (Walled City)": 1.25,
+    "Gulberg": 1.12,
+    "Johar Town": 1.02,
+    "Model Town": 0.94,
+    "DHA Phase 5": 0.82,
+    "Garhi Shahu": 1.28,
+    "Badshahi & Circular Road": 1.30,
+    "Thokar Niaz Baig": 1.35,
+    "Iqbal Town": 1.18,
+    "Gulberg III (Liberty)": 1.15,
+    "DHA Phase 8": 0.85,
+    "Cantt / Fortress": 0.95,
 }
 
 
