@@ -28,7 +28,7 @@ class Report(Base):
         String(50), nullable=False, server_default="approved"
     )  # approved, flagged
     submitted_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     # Relationship
