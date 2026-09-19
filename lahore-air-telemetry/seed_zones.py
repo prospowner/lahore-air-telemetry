@@ -1,11 +1,12 @@
 # seed_zones.py
-from app.database import SessionLocal
-from app.models.report import Report
-from app.models.telemetry import TelemetryLog
+from app.database import SessionLocal, init_db
 from app.models.zone import Zone
 
 
 def seed_lahore_zones():
+    # Ensure tables are created first to prevent 'no such table' errors
+    init_db()
+
     db = SessionLocal()
 
     zones_data = [

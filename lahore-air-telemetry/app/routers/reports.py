@@ -77,14 +77,21 @@ def extract_gps_from_exif(image_path: str):
 async def create_report(
     zone_id: int = Form(...),
     category: str = Form(...),
-    description: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None),
+    description: str = Form(...),
+    file: UploadFile = File(...),  # Enforce mandatory image file upload
     db: Session = Depends(get_db),
 ):
-    """Submit a crowd-sourced local hazard report with optional image EXIF & moderation check."""
+    """Submit a crowd-sourced local hazard report with mandatory image EXIF verification & moderation check."""
     zone = db.query(Zone).filter(Zone.id == zone_id).first()
     if not zone:
         raise HTTPException(status_code=404, detail="Specified zone not found")
+
+    # Strict validation: Reject imageless submissions
+    if not file or not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="EXIF verification failed: A geotagged image file is strictly required to broadcast a hazard report.",
+        )
 
     if check_profanity(description):
         raise HTTPException(
@@ -92,16 +99,18 @@ async def create_report(
             detail="Report rejected: Content flagged by automated moderation filter.",
         )
 
-    image_url = None
-    lat, lon = None, None
-
-    if file:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
+    # Save uploaded verification image securely
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to save verification image: {str(e)}"
+        )
 
-        image_url = f"/static/uploads/{file.filename}"
-        lat, lon = extract_gps_from_exif(file_path)
+    image_url = f"/static/uploads/{file.filename}"
+    lat, lon = extract_gps_from_exif(file_path)
 
     new_report = Report(
         zone_id=zone_id,
@@ -112,7 +121,7 @@ async def create_report(
         longitude=lon,
         upvotes=0,
         downvotes=0,
-        verification_status="Pending",
+        verification_status="Pending Verification",
         moderation_status="Approved",
     )
     db.add(new_report)
@@ -164,11 +173,11 @@ def export_incident_logs(db: Session = Depends(get_db)):
                 r.zone_id,
                 r.category,
                 r.description or "",
-                r.verification_status,
+                r.verification_status or "Pending Verification",
                 r.upvotes,
                 r.downvotes,
-                r.latitude or "",
-                r.longitude or "",
+                r.latitude if r.latitude is not None else "",
+                r.longitude if r.longitude is not None else "",
                 r.submitted_at.isoformat() if r.submitted_at else "",
             ]
         )
@@ -204,7 +213,6 @@ def vote_report(
     previous_vote = report_votes_tracker[report_id].get(client_ip)
 
     if previous_vote == direction:
-        # Toggle off: user clicked the same vote button again to retract
         report_votes_tracker[report_id].pop(client_ip)
         if direction == "up":
             report.upvotes = max(0, report.upvotes - 1)
@@ -212,13 +220,11 @@ def vote_report(
             report.downvotes = max(0, report.downvotes - 1)
         message = "Vote retracted"
     else:
-        # Revert previous vote if switching sides (e.g. up to down)
         if previous_vote == "up":
             report.upvotes = max(0, report.upvotes - 1)
         elif previous_vote == "down":
             report.downvotes = max(0, report.downvotes - 1)
 
-        # Apply new vote
         if direction == "up":
             report.upvotes += 1
         elif direction == "down":
@@ -227,9 +233,8 @@ def vote_report(
         report_votes_tracker[report_id][client_ip] = direction
         message = "Vote recorded"
 
-    # Threshold Auto-Escalation Logic
     net_upvotes = report.upvotes - report.downvotes
-    if net_upvotes >= 5 and report.verification_status == "Pending":
+    if net_upvotes >= 5 and report.verification_status == "Pending Verification":
         report.verification_status = "High Priority"
         message += " and report auto-escalated to High Priority!"
 
@@ -249,10 +254,10 @@ def update_report_status(
 ):
     """
     Update the verification status of a community hazard report (Authority Triage).
-    Allowed states: Pending, High Priority, Investigating, Resolved, False Report.
+    Allowed states: Pending Verification, High Priority, Investigating, Resolved, False Report.
     """
     allowed_statuses = [
-        "Pending",
+        "Pending Verification",
         "High Priority",
         "Investigating",
         "Resolved",
