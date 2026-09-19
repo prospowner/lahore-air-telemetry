@@ -1,5 +1,5 @@
 # seed_zones.py
-from app.database import SessionLocal
+from app.database import SessionLocal, init_db
 
 # Import ALL models so SQLAlchemy registers relationships properly
 from app.models.report import Report
@@ -8,6 +8,9 @@ from app.models.zone import Zone
 
 
 def seed_lahore_zones():
+    # Ensure tables are created first to prevent 'no such table' errors
+    init_db()
+
     db = SessionLocal()
 
     zones_data = [
